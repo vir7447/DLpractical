@@ -1,0 +1,123 @@
+code :
+
+from sklearn.preprocessing import LabelBinarizer
+from sklearn.metrics import classification_report
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.datasets import mnist
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+
+print("[INFO] accessing MNIST...")
+
+
+((trainX, trainY), (testX, testY)) = mnist.load_data()
+
+
+trainX = trainX.reshape((trainX.shape[0], 28 * 28 * 1))
+testX = testX.reshape((testX.shape[0], 28 * 28 * 1))
+
+
+trainX = trainX.astype("float32") / 255.0
+testX = testX.astype("float32") / 255.0
+
+
+lb = LabelBinarizer()
+trainY = lb.fit_transform(trainY)
+testY = lb.transform(testY)
+
+
+model = Sequential()
+model.add(Dense(256, input_shape=(784,), activation="relu"))
+model.add(Dense(128, activation="relu"))
+model.add(Dense(64, activation="relu"))
+model.add(Dense(10, activation="softmax"))
+
+
+print("[INFO] training network...")
+Adm = Adam(0.01)
+model.compile(loss="categorical_crossentropy", optimizer=Adm,
+metrics=["accuracy"])
+H = model.fit(trainX, trainY, validation_data=(testX, testY),
+epochs=100, batch_size=128)
+
+
+print("[INFO] evaluating network...")
+predictions = model.predict(testX, batch_size=128)
+print(classification_report(testY.argmax(axis=1),
+  predictions.argmax(axis=1),
+  target_names=[str(x) for x in lb.classes_]))
+  
+  
+  
+plt.style.use("ggplot")
+plt.figure()
+plt.plot(np.arange(0, 100), H.history["loss"], label="train_loss")
+plt.plot(np.arange(0, 100), H.history["val_loss"], label="val_loss")
+plt.plot(np.arange(0, 100), H.history["accuracy"], label="train_acc")
+plt.plot(np.arange(0, 100), H.history["val_accuracy"],
+label="val_acc")
+plt.title("Training Loss and Accuracy")
+plt.xlabel("Epoch #")
+plt.ylabel("Loss/Accuracy")
+plt.legend()
+
+
+
+
+
+
+
+Explanation:
+
+The provided code is an example of a neural network implemented using the TensorFlow and Keras libraries to perform image classification on the MNIST dataset, a well-known dataset of handwritten digits. Below is an explanation of each part of the code:
+
+1. Importing Libraries:
+   - Import various Python libraries and modules necessary for the code:
+     - `LabelBinarizer`: Used for one-hot encoding the class labels.
+     - `classification_report`: A utility to print a classification report.
+     - `Sequential`: A linear stack of layers for building a neural network.
+     - `Dense`: A fully connected layer in a neural network.
+     - `Adam`: An optimization algorithm.
+     - `mnist`: The MNIST dataset.
+     - `matplotlib.pyplot`: Used for data visualization.
+     - `numpy`: A library for numerical operations.
+
+2. Loading the MNIST Dataset:
+   - The code loads the MNIST dataset using `mnist.load_data()` and assigns the training and testing data to `(trainX, trainY)` and `(testX, testY)` variables, respectively.
+
+3. Data Preprocessing:
+   - The image data is reshaped from 28x28 pixels to a 1D array of size 784.
+   - The pixel values are normalized to the range [0, 1] by dividing by 255.0.
+   - Class labels are one-hot encoded using `LabelBinarizer`, converting them into binary arrays.
+
+4. Creating the Neural Network Model:
+   - A sequential neural network model is created using the `Sequential` class.
+   - The model consists of several fully connected (`Dense`) layers.
+   - The first layer has 256 units with ReLU activation.
+   - The second layer has 128 units with ReLU activation.
+   - The third layer has 64 units with ReLU activation.
+   - The final output layer has 10 units (corresponding to the 10 possible digits) with a softmax activation function.
+
+5. Compiling the Model:
+   - The model is compiled with:
+     - Loss function: Categorical cross-entropy, suitable for multiclass classification.
+     - Optimizer: Adam optimizer with a learning rate of 0.01.
+     - Metrics to be tracked: Accuracy.
+
+6. Training the Model:
+   - The model is trained using the `fit` method with training data, validation data, and other settings.
+   - Training is performed for 100 epochs with a batch size of 128.
+   - Training history is stored in the `H` variable.
+
+7. Evaluating the Model:
+   - The trained model is used to make predictions on the test data.
+   - The `classification_report` function is used to print a classification report, including precision, recall, and F1-score for each class.
+
+8. Visualizing Training History:
+   - Matplotlib is used to create a plot showing the training and validation loss and accuracy across epochs.
+
+The code demonstrates a complete pipeline for training a neural network on the MNIST dataset for digit classification, including data preprocessing, model creation, training, and evaluation.

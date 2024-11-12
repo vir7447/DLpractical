@@ -1,0 +1,251 @@
+code:
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import tensorflow as tf
+from sklearn.metrics import accuracy_score, precision_score,recall_score
+from sklearn.model_selection import train_test_split
+from tensorflow.keras import layers, losses
+from tensorflow.keras.datasets import fashion_mnist
+from tensorflow.keras.models import Model
+
+
+(x_train, _), (x_test, _) = fashion_mnist.load_data()
+x_train = x_train.astype('float32') / 255.
+x_test = x_test.astype('float32') / 255.
+print (x_train.shape)
+print (x_test.shape)
+
+
+latent_dim = 64
+class Autoencoder(Model):
+  def __init__(self, latent_dim):
+    super(Autoencoder, self).__init__()
+    self.latent_dim = latent_dim
+    self.encoder = tf.keras.Sequential([
+    layers.Flatten(),
+    layers.Dense(latent_dim, activation='relu'),
+    ])
+    self.decoder = tf.keras.Sequential([
+    layers.Dense(784, activation='sigmoid'),
+    layers.Reshape((28, 28))
+    ])
+  def call(self, x):
+    encoded = self.encoder(x)
+    decoded = self.decoder(encoded)
+    return decoded
+autoencoder = Autoencoder(latent_dim)
+autoencoder.compile(optimizer='adam', loss=losses.MeanSquaredError())
+
+
+autoencoder.fit(x_train, x_train,epochs=10,shuffle=True,validation_data=(x_test, x_test))
+
+
+encoded_imgs = autoencoder.encoder(x_test).numpy()
+decoded_imgs = autoencoder.decoder(encoded_imgs).numpy()
+n = 10
+plt.figure(figsize=(20, 4))
+for i in range(n):
+# display original
+  ax = plt.subplot(2, n, i + 1)
+  plt.imshow(x_test[i])
+  plt.title("original")
+  plt.gray()
+  ax.get_xaxis().set_visible(False)
+  ax.get_yaxis().set_visible(False)
+  # display reconstruction
+  ax = plt.subplot(2, n, i + 1 + n)
+  plt.imshow(decoded_imgs[i])
+  plt.title("reconstructed")
+  plt.gray()
+  ax.get_xaxis().set_visible(False)
+  ax.get_yaxis().set_visible(False)
+plt.show()
+
+
+dataframe =pd.read_csv('http://storage.googleapis.com/download.tensorflow.org/data/ecg.csv', header=None)
+raw_data = dataframe.values
+dataframe.tail()
+
+
+# The last element contains the labels
+labels = raw_data[:, -1]
+
+
+# The other data points are the electrocadriogram data
+data = raw_data[:, 0:-1]
+train_data, test_data, train_labels, test_labels = train_test_split(data, labels, test_size=0.2, random_state=21)
+
+
+#Normalize the data to [0,1].
+min_val = tf.reduce_min(train_data)
+max_val = tf.reduce_max(train_data)
+train_data = (train_data - min_val) / (max_val - min_val)
+test_data = (test_data - min_val) / (max_val - min_val)
+train_data = tf.cast(train_data, tf.float32)
+test_data = tf.cast(test_data, tf.float32)
+
+
+train_labels = train_labels.astype(bool)
+test_labels = test_labels.astype(bool)
+normal_train_data = train_data[train_labels]
+normal_test_data = test_data[test_labels]
+anomalous_train_data = train_data[~train_labels]
+anomalous_test_data = test_data[~test_labels]
+
+
+#Plot a normal ECG.
+plt.grid()
+plt.plot(np.arange(140), normal_train_data[0])
+plt.title("A Normal ECG")
+plt.show()
+
+
+
+#Plot an anomalous ECG.
+plt.grid()
+plt.plot(np.arange(140), anomalous_train_data[0])
+plt.title("An Anomalous ECG")
+plt.show()
+
+
+#Build the model
+class AnomalyDetector(Model):
+  def __init__(self):
+    super(AnomalyDetector, self).__init__()
+    self.encoder = tf.keras.Sequential([
+    layers.Dense(32, activation="relu"),
+    layers.Dense(16, activation="relu"),
+    layers.Dense(8, activation="relu")])
+    self.decoder = tf.keras.Sequential([
+    layers.Dense(16, activation="relu"),
+    layers.Dense(32, activation="relu"),
+    layers.Dense(140, activation="sigmoid")])
+  def call(self, x):
+    encoded = self.encoder(x)
+    decoded = self.decoder(encoded)
+    return decoded
+autoencoder = AnomalyDetector()
+autoencoder.compile(optimizer='adam', loss='mae')
+
+
+
+history = autoencoder.fit(normal_train_data, normal_train_data,epochs=20,batch_size=512,validation_data=(test_data, test_data),shuffle=True)
+
+
+plt.plot(history.history["loss"], label="Training Loss")
+plt.plot(history.history["val_loss"], label="Validation Loss")
+plt.legend()
+
+
+encoded_data = autoencoder.encoder(normal_test_data).numpy()
+decoded_data = autoencoder.decoder(encoded_data).numpy()
+plt.plot(normal_test_data[0], 'b')
+plt.plot(decoded_data[0], 'r')
+plt.fill_between(np.arange(140), decoded_data[0], normal_test_data[0],
+color='lightcoral')
+plt.legend(labels=["Input", "Reconstruction", "Error"])
+plt.show()
+
+
+encoded_data = autoencoder.encoder(anomalous_test_data).numpy()
+decoded_data = autoencoder.decoder(encoded_data).numpy()
+plt.plot(anomalous_test_data[0], 'b')
+plt.plot(decoded_data[0], 'r')
+plt.fill_between(np.arange(140), decoded_data[0],
+anomalous_test_data[0], color='lightcoral')
+plt.legend(labels=["Input", "Reconstruction", "Error"])
+plt.show()
+
+
+#Plot the reconstruction error on normal ECGs from the training set
+reconstructions = autoencoder.predict(normal_train_data)
+train_loss = tf.keras.losses.mae(reconstructions, normal_train_data)
+plt.hist(train_loss[None,:], bins=50)
+plt.xlabel("Train loss")
+plt.ylabel("No of examples")
+plt.show()
+
+
+threshold = np.mean(train_loss) + np.std(train_loss)
+print("Threshold: ", threshold)
+
+
+reconstructions = autoencoder.predict(anomalous_test_data)
+test_loss = tf.keras.losses.mae(reconstructions, anomalous_test_data)
+plt.hist(test_loss[None, :], bins=50)
+plt.xlabel("Test loss")
+plt.ylabel("No of examples")
+plt.show()
+
+
+
+def predict(model, data, threshold):
+  reconstructions = model(data)
+  loss = tf.keras.losses.mae(reconstructions, data)
+  return tf.math.less(loss, threshold)
+
+def print_stats(predictions, labels):
+  print("Accuracy = {}".format(accuracy_score(labels, predictions)))
+  print("Precision = {}".format(precision_score(labels, predictions)))
+  print("Recall = {}".format(recall_score(labels, predictions)))
+preds = predict(autoencoder, train_data, threshold)
+print_stats(preds, train_labels)
+
+
+
+preds = predict(autoencoder, test_data, threshold)
+print_stats(preds, test_labels)
+
+
+Explanation :
+
+The provided code demonstrates anomaly detection using an autoencoder on two different datasets: the Fashion MNIST dataset and an electrocardiogram (ECG) dataset. Here's a step-by-step explanation of the code:
+
+### Part 1: Autoencoder for Image Denoising (Fashion MNIST Dataset)
+1. Load and Preprocess Data:
+   - Load the Fashion MNIST dataset and normalize the pixel values to the range [0, 1].
+
+2. Build an Autoencoder Model:
+   - Define a custom Autoencoder class that inherits from `tf.keras.Model`.
+   - The autoencoder consists of an encoder and a decoder.
+   - The encoder flattens the input and passes it through a Dense layer with a specified `latent_dim`.
+   - The decoder has two Dense layers: one with 784 units and a sigmoid activation, and the other for reshaping back to 28x28.
+
+3. Compile and Train Autoencoder:
+   - Compile the autoencoder model using mean squared error (MSE) as the loss function and the Adam optimizer.
+   - Train the autoencoder on the training data for 10 epochs, with input and output being the same.
+
+4. Visualize Results:
+   - Generate reconstructions for a few test images using the trained autoencoder.
+   - Plot original and reconstructed images for comparison.
+
+### Part 2: Anomaly Detection on ECG Dataset
+5. Load and Preprocess ECG Data:
+   - Load the ECG dataset from a CSV file and preprocess it.
+   - Normalize the data to the range [0, 1].
+   - Split the data into training and testing sets.
+
+6. Build a Custom Anomaly Detection Model:
+   - Define a custom AnomalyDetector class that inherits from `tf.keras.Model`.
+   - The model includes an encoder and a decoder, similar to the autoencoder in Part 1.
+   - The model is trained with mean absolute error (MAE) loss.
+
+7. Train Anomaly Detector:
+   - Train the anomaly detector on normal ECG data.
+   - Plot the training and validation loss to visualize the training progress.
+
+8. Visualize Anomaly Detection:
+   - Visualize the reconstruction, input, and error for normal and anomalous ECG data.
+   - Plot histograms of loss values for normal and anomalous test data to determine a threshold for anomaly detection.
+
+9. Anomaly Detection and Evaluation:
+   - Use the threshold to predict anomalies on both training and test data.
+   - Calculate and print accuracy, precision, and recall for the predictions.
+
+The code combines two different use cases: image denoising and ECG anomaly detection using autoencoders. The autoencoder is trained to learn the underlying structure of the data and is subsequently used to detect anomalies by comparing the loss between the original data and the reconstructed data. Evaluation metrics such as accuracy, precision, and recall are used to assess the performance of the anomaly detection.
+
+
+
+

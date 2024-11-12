@@ -1,0 +1,113 @@
+code:
+
+import tensorflow as tf
+from tensorflow.keras import datasets, layers, models
+import matplotlib.pyplot as plt
+
+
+(train_images, train_labels), (test_images, test_labels) = datasets.cifar10.load_data()
+
+
+train_images, test_images = train_images / 255.0, test_images / 255.0
+
+
+class_names = ['airplane', 'automobile', 'bird', 'cat', 'deer','dog', 'frog', 'horse', 'ship', 'truck']
+
+
+plt.figure(figsize=(10,10))
+for i in range(5):
+  plt.subplot(5,5,i+1)
+  plt.xticks([])
+  plt.yticks([])
+  plt.grid(False)
+  plt.imshow(train_images[i])
+  # The CIFAR labels happen to be arrays,
+  # which is why you need the extra index
+  plt.xlabel(class_names[train_labels[i][0]])
+plt.show()
+
+
+model = models.Sequential()
+model.add(layers.Conv2D(32, (3, 3), activation='relu',input_shape=(32, 32, 3)))
+model.add(layers.MaxPooling2D((2, 2)))
+model.add(layers.Conv2D(64, (3, 3), activation='relu'))
+model.add(layers.MaxPooling2D((2, 2)))
+model.add(layers.Conv2D(64, (3, 3), activation='relu'))
+
+
+model.summary()
+
+
+model.add(layers.Flatten())
+model.add(layers.Dense(64, activation='relu'))
+model.add(layers.Dense(10))
+
+
+model.summary()
+
+
+model.compile(optimizer='adam',loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+metrics=['accuracy'])
+history = model.fit(train_images, train_labels, epochs=10,
+validation_data=(test_images, test_labels))
+
+
+plt.plot(history.history['accuracy'], label='accuracy')
+plt.plot(history.history['val_accuracy'], label = 'val_accuracy')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.ylim([0.5, 1])
+plt.legend(loc='lower right')
+test_loss, test_acc = model.evaluate(test_images, test_labels,verbose=2)
+
+
+explanation :
+
+The provided code is an example of using TensorFlow and Keras to build and train a Convolutional Neural Network (CNN) for image classification using the CIFAR-10 dataset. Here's a step-by-step explanation of the code:
+
+1. Importing Libraries:
+   - Import necessary libraries, including TensorFlow, Keras, and Matplotlib.
+
+2. Loading the CIFAR-10 Dataset:
+   - Load the CIFAR-10 dataset using `datasets.cifar10.load_data()`.
+   - Split the data into training and testing sets.
+   - Normalize the pixel values by dividing them by 255.0.
+
+3. Defining Class Names:
+   - Define a list of class names corresponding to the 10 different categories in the CIFAR-10 dataset.
+
+4. Displaying Sample Images:
+   - Create a 5x5 grid to display a few sample images from the dataset with their corresponding labels.
+   - This is done for visualization purposes using Matplotlib.
+
+5. Creating the CNN Model:
+   - Build a sequential model using Keras.
+   - Add three Conv2D layers with ReLU activation functions and MaxPooling layers for downsampling.
+   - The first layer takes an input shape of 32x32x3 (image dimensions with three color channels).
+   - The `model.summary()` method is called to display a summary of the model's architecture.
+
+6. Adding Dense Layers:
+   - Flatten the output from the convolutional layers to prepare it for fully connected layers.
+   - Add two Dense layers with ReLU activation.
+   - The final Dense layer has 10 units for classification (corresponding to the 10 classes).
+
+7. Compiling the Model:
+   - Compile the model with:
+     - Optimizer: 'adam'.
+     - Loss function: Sparse categorical cross-entropy (used when the labels are integers).
+     - Metrics to be tracked: Accuracy.
+
+8. Training the Model:
+   - Train the model using the training data.
+   - Validate the model's performance on the test data.
+   - The training history is stored in the `history` variable.
+
+9. Plotting Training History:
+   - Plot the training and validation accuracy across epochs using Matplotlib.
+   - This helps visualize the training progress.
+
+10. Evaluating the Model:
+   - Evaluate the trained model on the test data to compute the test loss and test accuracy.
+   - The results are stored in `test_loss` and `test_acc`.
+
+This code demonstrates the entire process of building and training a CNN for image classification using the CIFAR-10 dataset, as well as visualizing the training history and evaluating the model's performance. The model is trained for 10 epochs, and the accuracy is monitored during training. The final evaluation provides the test accuracy and loss.

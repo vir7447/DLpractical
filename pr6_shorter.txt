@@ -1,0 +1,80 @@
+code : 
+
+import tensorflow as tf
+
+# Choose a pre-trained CNN model
+pre_trained_model = tf.keras.applications.vgg16.VGG16(weights='imagenet', include_top=False)
+
+# Freeze the pre-trained model layers
+for layer in pre_trained_model.layers:
+    layer.trainable = False
+
+# Add new layers for object detection
+# For example, you could use a region proposal network (RPN) and a fast region-based convolutional neural network (Faster R-CNN)
+
+# Add a new fully connected layer to predict the class of the detected object
+new_fc_layer = tf.keras.layers.Dense(num_classes, activation='softmax')
+
+# Add the new layers to the pre-trained model
+model = tf.keras.Sequential([
+    pre_trained_model,
+    new_fc_layer
+])
+
+# Compile the model
+model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
+# Train the model on your own dataset
+model.fit(train_images, train_labels, epochs=10)
+
+# Evaluate the model on your test dataset
+model.evaluate(test_images, test_labels)
+
+# Make predictions on new images
+new_image = tf.keras.preprocessing.image.load_img('new_image.jpg', target_size=(224, 224))
+new_image = tf.keras.preprocessing.image.img_to_array(new_image)
+new_image = tf.expand_dims(new_image, axis=0)
+
+predictions = model.predict(new_image)
+
+# Get the predicted class of the detected object
+predicted_class = predictions[0].argmax()
+
+# Print the predicted class
+print('Predicted class:', predicted_class)
+
+
+
+explanation :
+
+Certainly! Here's a breakdown of each line in the provided code:
+
+1. `import tensorflow as tf`: Imports the TensorFlow library, which is used for building and training neural network models.
+
+2. `pre_trained_model = tf.keras.applications.vgg16.VGG16(weights='imagenet', include_top=False)`: Initializes the VGG16 pre-trained model provided by Keras without including the fully connected layers (include_top=False). The weights are set to 'imagenet', indicating the usage of pre-trained weights on the ImageNet dataset.
+
+3. `for layer in pre_trained_model.layers:
+    layer.trainable = False`: Freezes the layers of the pre-trained VGG16 model, preventing them from being updated during training.
+
+4. `new_fc_layer = tf.keras.layers.Dense(num_classes, activation='softmax')`: Creates a new fully connected (Dense) layer with `num_classes` neurons (units) and a softmax activation function. This layer will predict the classes of the detected objects.
+
+5. `model = tf.keras.Sequential([pre_trained_model, new_fc_layer])`: Constructs a new model by combining the pre-trained VGG16 model (with its layers frozen) and the newly created fully connected layer.
+
+6. `model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])`: Compiles the model, configuring its optimizer, loss function, and evaluation metrics. The optimizer is set to 'adam', the loss function is 'categorical_crossentropy' suitable for multi-class classification tasks, and the accuracy is chosen as the metric to evaluate model performance.
+
+7. `model.fit(train_images, train_labels, epochs=10)`: Trains the model on the `train_images` and `train_labels` datasets for 10 epochs.
+
+8. `model.evaluate(test_images, test_labels)`: Evaluates the trained model's performance on the `test_images` and `test_labels` datasets.
+
+9. Loading and making predictions on new images:
+    - `new_image = tf.keras.preprocessing.image.load_img('new_image.jpg', target_size=(224, 224))`: Loads and preprocesses a new image from the file 'new_image.jpg', resizing it to a target size of 224x224 pixels.
+    - `new_image = tf.keras.preprocessing.image.img_to_array(new_image)`: Converts the loaded image to a NumPy array.
+    - `new_image = tf.expand_dims(new_image, axis=0)`: Reshapes the image array to be in the shape suitable for prediction (adding a batch dimension).
+
+10. `predictions = model.predict(new_image)`: Uses the trained model to predict the class probabilities for the new image.
+
+11. `predicted_class = predictions[0].argmax()`: Identifies the predicted class by finding the index of the class with the highest probability from the prediction results.
+
+12. `print('Predicted class:', predicted_class)`: Prints the predicted class index obtained from the model's prediction.
+
+This code showcases transfer learning by using a pre-trained VGG16 model for object classification on a new image. It's important to replace `train_images`, `train_labels`, `test_images`, and `test_labels` with your own image datasets and corresponding labels to apply this code effectively.
