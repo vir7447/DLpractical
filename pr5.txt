@@ -1,165 +1,139 @@
-code :
-
-import matplotlib.pyplot as plt
-import seaborn as sns
-import matplotlib as mpl
-import matplotlib.pylab as pylab
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense,\
+	Embedding, Lambda
+from tensorflow.keras.preprocessing.text import Tokenizer
 import numpy as np
-
-%matplotlib inline
-from nltk.tokenize import sent_tokenize, word_tokenize
-import warnings
-warnings.filterwarnings(action = 'ignore')
-import gensim
-from gensim.models import Word2Vec
-import re
-import bs4 as bs
-import urllib.request
-import nltk
-nltk.download('punkt')
-nltk.download('stopwords')
-
-
-scrapped_data=urllib.request.urlopen("https://en.wikipedia.org/wiki/Machine_learning")
-article=scrapped_data.read()
-paresed_article=bs.BeautifulSoup(article,'lxml')
-paragraphs=paresed_article.find_all('p')
-article_text=""
-for p in paragraphs:
-  article_text+=p.text
-sentences=article_text
-print(article_text)
-
-
-sentences="""Alice 23 opened the door and found that it led into a
-small 90
-passage, not much larger than a rat-hole: she knelt down and
-looked along the passage into the loveliest garden you ever saw.
-How she longed to get out of that dark hall, and wander about
-among those beds of bright flowers and those cool fountains, but
-she could not even get her head through the doorway; `and even if
-my head would go through,' (thought) $poor Alice, `it would be of
-very little use without my shoulders. Oh, how I wish
-I could shut up like a telescope! I think I could, if I only
-know how to begin.' For, you see, so many out-of-the-way things
-had happened lately, that Alice had begun to think that very few
-things indeed were really impossible.
-"""
-sentences = re.sub('[^A-Za-z0-9]+', ' ', sentences)
-sentences = re.sub(r'(?:^| )\w(?:$| )', ' ', sentences).strip()
-print(sentences)
-
-
-
-# remove special characters
-sentences = re.sub('[^A-Za-z]+', ' ', sentences)
-# remove 1 letter words
-sentences = re.sub(r'(?:^| )\w(?:$| )', ' ', sentences).strip()
-# lower all characters
-sentences = sentences.lower()
-all_sent=nltk.sent_tokenize(sentences)
-all_words=[nltk.word_tokenize(sent) for sent in all_sent]
-from nltk.corpus import stopwords
-for i in range(len(all_words)):
-  all_words[i]=[w for w in all_words[i] if w not in
-stopwords.words('english')]
-data =all_words
-data1=data[0]
-
-
-model1 = gensim.models.Word2Vec(data, min_count = 1,vector_size = 52, window= 5)
-
-
-vocabulary=model1.wv.key_to_index
-print(vocabulary)
-
-
-rd='door'
-#wrd=['subset','machine', 'learning','closely','related']
-v1=model1.wv[wrd]
-similar_words=model1.wv.most_similar(wrd)
-for x in similar_words:
-  print(x)
-  
-  
-  dat = []
-for i in range(2, len(data) - 2):
-  context = [data1[i - 2], data1[i - 1], data1[i+1], data1[i + 2]]
-  target = data1[i]
-  dat.append((context, target))
-print(dat[:5])
-
-
-
-#print(dat[1][0])
-[]
-#for val in dat:
-# print(val[0],val[1])
-i=3
-print(dat[i][0],dat[i][1])
-print(model1.predict_output_word(dat[i][0]))
-
-
+import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
-from matplotlib import pyplot
-X = model1[model1.wv.vocab]
+import re
+
+
+data = """We are about to study the idea of a computational process.
+Computational processes are abstract beings that inhabit computers.
+As they evolve, processes manipulate other abstract things called data.
+The evolution of a process is directed by a pattern of rules
+called a program. People create programs to direct processes. In effect,
+we conjure the spirits of the computer with our spells."""
+
+
+sentences = data.split(".")
+sentences
+
+
+#Clean Data
+clean_sentences = []
+for sentence in sentences:
+    # skip empty string
+    if sentence == "":
+        continue;
+    # remove special characters
+    sentence = re.sub('[^A-Za-z0-9]+', ' ', sentence)
+    # remove 1 letter words
+    sentence = re.sub(r'(?:^| )\w(?:$| )', ' ', sentence).strip()
+    # lower all characters
+    sentence = sentence.lower()
+    clean_sentences.append(sentence)
+
+
+
+clean_sentences
+
+
+# Define the corpus
+corpus = clean_sentences
+
+
+# Convert the corpus to a sequence of integers
+tokenizer = Tokenizer()
+tokenizer.fit_on_texts(corpus)
+sequences = tokenizer.texts_to_sequences(corpus)
+print("After converting our words in the corpus \
+into vector of integers:")
+print(sequences)
+
+
+
+
+# creating dictionary for word to index and index to word
+index_to_word_map = {}
+word_to_index_map = {}
+for index_1, sequence in enumerate(sequences):
+    print(sequence)
+    words_in_sentence = clean_sentences[index_1].split()
+    print(words_in_sentence)
+    for index_2, value in enumerate(sequence):
+        index_to_word_map[value] = words_in_sentence[index_2]
+        word_to_index_map[words_in_sentence[index_2]] = value
+
+
+print(index_to_word_map)
+print("\n")
+print(word_to_index_map)
+
+
+
+# Define the parameters
+vocab_size = len(tokenizer.word_index) + 1
+embedding_size = 10
+window_size = 2
+
+# Generate the context-target pairs
+contexts = []
+targets = []
+for sequence in sequences:
+	for i in range(window_size, len(sequence) - window_size):
+		context = sequence[i - window_size:i] + sequence[i + 1:i + window_size + 1]
+		target = sequence[i]
+		contexts.append(context)
+		targets.append(target)
+
+
+# sample of training data
+for i in range(5):
+    words = []
+    target = index_to_word_map.get(targets[i])
+    for j in contexts[i]:
+        words.append(index_to_word_map.get(j))
+    print(words, "=>", target)
+
+
+# Convert the contexts and targets to numpy arrays
+X = np.array(contexts)
+Y = np.array(targets)
+
+
+
+# Define the CBOW model
+model = Sequential()
+model.add(Embedding(input_dim=vocab_size, output_dim=embedding_size, input_length=2 * window_size))
+model.add(Lambda(lambda x: tf.reduce_mean(x, axis=1)))
+model.add(Dense(256, activation='relu'))
+model.add(Dense(512, activation='relu'))
+model.add(Dense(units=vocab_size, activation='softmax'))
+
+# Compile the model
+model.compile(loss='sparse_categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+
+# Train the model
+model.fit(X, Y, epochs=200, verbose=1)
+
+
+
+# Get the word embeddings
+embeddings = model.get_weights()[0]
+
+# Perform PCA to reduce the dimensionality of the embeddings
 pca = PCA(n_components=2)
-result = pca.fit_transform(X)
-pyplot.scatter(result[:, 0], result[:, 1])
-words = list(model1.wv.vocab)
-for i, word in enumerate(words):
-  pyplot.annotate(word, xy=(result[i, 0], result[i, 1]))
-pyplot.show()
+reduced_embeddings = pca.fit_transform(embeddings)
 
 
-Explanation :
-
-
- The provided code performs several tasks related to natural language processing and word embeddings using the Gensim library. Here's a step-by-step explanation of the code:
-
-1. Import Libraries:
-   - The code begins by importing various libraries, including Matplotlib, Seaborn, NumPy, Matplotlib.pyplot, NLTK, Gensim, and others.
-
-2. Web Scraping:
-   - The code scrapes text data from the Wikipedia page on "Machine learning" using urllib and Beautiful Soup (bs4).
-   - The content of the web page is extracted and stored in the variable `article_text`.
-
-3. Text Preprocessing:
-   - The text data is cleaned and preprocessed in the following ways:
-     - Removing special characters.
-     - Removing one-letter words.
-     - Converting all text to lowercase.
-   - The preprocessed text is stored in the variable `sentences`.
-
-4. Tokenization and Stopword Removal:
-   - The code tokenizes the text into sentences and then into words using NLTK's tokenization functions.
-   - Stopwords are removed from the words to filter out common and less meaningful words.
-
-5. Word Embeddings with Word2Vec:
-   - A Word2Vec model is trained on the preprocessed data.
-   - The Word2Vec model is defined with parameters like `min_count`, `size`, and `window`.
-   - The vocabulary of the Word2Vec model is printed to show the unique words.
-
-6. Word Similarity:
-   - A specific word, 'door' (`wrd`), is selected to find similar words from the trained Word2Vec model.
-   - The most similar words to 'door' are printed, along with their similarity scores.
-
-7. Context-Target Data Preparation:
-   - The code prepares context-target pairs for training a neural network.
-   - It iterates through the data and creates a list of context words and their corresponding target word.
-   - A context consists of two words before and two words after the target word.
-   - The resulting `dat` list contains tuples of context and target pairs.
-
-8. Word Prediction with Word2Vec:
-   - The code selects a specific data point (context and target pair) from `dat`.
-   - It prints the context and target words.
-   - It then uses the Word2Vec model to predict the output word based on the provided context.
-
-9. Visualization with PCA:
-   - The Word2Vec model is visualized using Principal Component Analysis (PCA) to reduce the dimensions of word vectors.
-   - Words are plotted in a scatter plot in 2D space.
-   - Words are labeled and displayed on the plot.
-
-Overall, the code demonstrates various aspects of word embeddings using Word2Vec, including training a Word2Vec model, finding similar words, preparing data for a neural network, and visualizing word vectors in a lower-dimensional space. This code is a comprehensive example of text processing and word embedding techniques.
-
-
+# Visualize the embeddings
+plt.figure(figsize=(7, 7))
+for i, word in enumerate(tokenizer.word_index.keys()):
+    x, y = reduced_embeddings[i]
+    plt.scatter(x, y)
+    plt.annotate(word, xy=(x, y), xytext=(5, 2),
+                 textcoords='offset points',
+                 ha='right', va='bottom')
+plt.show()
